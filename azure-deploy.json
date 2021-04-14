@@ -1,0 +1,313 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "fileShareName": {
+            "type": "string",
+            "defaultValue": "sftpfileshare",
+            "metadata": {
+                "description": "Name of file share to be created"
+            }
+        },
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the key vault where user credentials are stored."
+            }
+        },
+        "kvSecretsTagName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of tag that will be used to query for secrets in the Key Vault."
+            }
+        },
+        "kvSecretsTagValue": {
+            "type": "string",
+            "metadata": {
+                "description": "The value for kvSecretsTagName to query for."
+            }
+        },
+        "managedIdentityResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "Resource ID of user-assigned managed identity with access to secrets in the 'keyVaultName'."
+            }
+        },
+        "helperScriptUrl": {
+            "type": "string",
+            "metadata": {
+                "description": "The URL of the key vault helper script."
+            }
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "name": "kvHelperTemplate",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "resourceGroup": "[resourceGroup().name]",
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "keyVaultName": {
+                            "type": "string",
+                            "metadata": {
+                                "description": "Name of the key vault where user credentials are stored."
+                            }
+                        },
+                        "kvSecretsTagName": {
+                            "type": "string",
+                            "metadata": {
+                                "description": "Name of tag that will be used to query for secrets in the Key Vault."
+                            }
+                        },
+                        "kvSecretsTagValue": {
+                            "type": "string",
+                            "metadata": {
+                                "description": "The value for kvSecretsTagName to query for."
+                            }
+                        },
+                        "managedIdentityResourceId": {
+                            "type": "string",
+                            "metadata": {
+                                "description": "Resource ID of user-assigned managed identity with access to secrets in the 'keyVaultName'."
+                            }
+                        },
+                        "helperScriptUrl": {
+                            "type": "string",
+                            "metadata": {
+                                "description": "The URL of the key vault helper script."
+                            }
+                        }
+                    },
+                    "variables": {
+                        "helperScriptName": "[last(split(parameters('helperScriptUrl'), '/'))]"
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.Resources/deploymentScripts",
+                            "apiVersion": "2020-10-01",
+                            "name": "runBashWithOutputs",
+                            "location": "[resourceGroup().location]",
+                            "kind": "AzureCLI",
+                            "identity": {
+                                "type": "UserAssigned",
+                                "userAssignedIdentities": {
+                                    "[parameters('managedIdentityResourceId')]": {}
+                                }
+                            },
+                            "properties": {
+                                "supportingScriptUris": [
+                                    "[parameters('helperScriptUrl')]"
+                                ],
+                                "forceUpdateTag": "[uniqueString(resourceGroup().id)]",
+                                "AzCliVersion": "2.15.0",
+                                "timeout": "PT30M",
+                                "scriptContent": "[concat('./', variables('helperScriptName'), ' -k ', parameters('keyVaultName'), ' -t ', parameters('kvSecretsTagName'), ' -v ', parameters('kvSecretsTagValue'), ' > $AZ_SCRIPTS_OUTPUT_PATH')]",
+                                "cleanupPreference": "OnSuccess",
+                                "retentionInterval": "P1D"
+                            }
+                        }
+                    ],
+                    "outputs": {
+                        "sftp_user_count": {
+                            "type": "int",
+                            "value": "[reference('runBashWithOutputs').outputs.sftp_user_count]"
+                        },
+                        "sftp_users": {
+                            "type": "array",
+                            "value": "[reference('runBashWithOutputs').outputs.sftp_users]"
+                        },
+                        "sftp_user_creds": {
+                            "type": "string",
+                            "value": "[reference('runBashWithOutputs').outputs.sftp_user_creds]"
+                        }
+                    }
+                },
+                "parameters": {
+                    "keyVaultName": {
+                        "value": "[parameters('keyVaultName')]"
+                    },
+                    "kvSecretsTagName": {
+                        "value": "[parameters('kvSecretsTagName')]"
+                    },
+                    "kvSecretsTagValue": {
+                        "value": "[parameters('kvSecretsTagValue')]"
+                    },
+                    "managedIdentityResourceId": {
+                        "value": "[parameters('managedIdentityResourceId')]"
+                    },
+                    "helperScriptUrl": {
+                        "value": "[parameters('helperScriptUrl')]"
+                    }
+                }
+            }
+        },
+        {
+            "name": "sftpTemplate",
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2020-10-01",
+            "resourceGroup": "[resourceGroup().name]",
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "inner"
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "fileShareName": {
+                            "type": "string",
+                            "defaultValue": "sftpfileshare",
+                            "metadata": {
+                                "description": "Name of file share to be created"
+                            }
+                        },
+                        "sftpUserCount": {
+                            "type": "int",
+                            "minValue": 1,
+                            "metadata": {
+                                "description": "Number of users to setup in the sshd process."
+                            }
+                        },
+                        "sftpUsers": {
+                            "type": "array",
+                            "metadata": {
+                                "description": "Array of sftp user names only."
+                            }
+                        },
+                        "sftpUserCreds": {
+                            "type": "string",
+                            "metadata": {
+                                "description": "List of user creds in following 'user:password:gid' format as expected by the sshd process."
+                            }
+                        }
+                    },
+                    "variables": {
+                        "sftpContainerName": "sftp",
+                        "sftpContainerGroupName": "sftp-group",
+                        "sftpContainerImage": "atmoz/sftp:latest",
+                        "storageAccountName": "[concat('sftpstg', uniqueString(resourceGroup().id))]",
+                        "containerGroupDNSLabel": "[uniqueString(resourceGroup().id, deployment().name)]"
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.Storage/storageAccounts",
+                            "name": "[variables('storageAccountName')]",
+                            "apiVersion": "2018-02-01",
+                            "location": "[resourceGroup().location]",
+                            "sku": {
+                                "name": "Premium_LRS"
+                            },
+                            "kind": "FileStorage",
+                            "properties": {}
+                        },
+                        {
+                            "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+                            "apiVersion": "2019-06-01",
+                            "name": "[concat(variables('storageAccountName'), '/default/', parameters('fileShareName'))]",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+                            ]
+                        },
+                        {
+                            "type": "Microsoft.ContainerInstance/containerGroups",
+                            "name": "[variables('sftpContainerGroupName')]",
+                            "apiVersion": "2018-04-01",
+                            "location": "[resourceGroup().location]",
+                            "properties": {
+                                "containers": [
+                                    {
+                                        "name": "[variables('sftpContainerName')]",
+                                        "properties": {
+                                            "image": "[variables('sftpContainerImage')]",
+                                            "environmentVariables": [
+                                                {
+                                                    "name": "SFTP_USERS",
+                                                    "value": "[parameters('sftpUserCreds')]"
+                                                }
+                                            ],
+                                            "resources": {
+                                                "requests": {
+                                                    "cpu": 2,
+                                                    "memoryInGB": 1
+                                                }
+                                            },
+                                            "ports": [
+                                                {
+                                                    "port": 22
+                                                }
+                                            ],
+                                            "copy": [
+                                                {
+                                                    "name": "volumeMounts",
+                                                    "count": "[parameters('sftpUserCount')]",
+                                                    "input": {
+                                                        "mountPath": "[concat('/home/', parameters('sftpUsers')[copyIndex('volumeMounts')], '/upload')]",
+                                                        "name": "[concat('sftpvolume', copyIndex('volumeMounts'))]",
+                                                        "readOnly": false
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ],
+                                "osType": "Linux",
+                                "ipAddress": {
+                                    "type": "Public",
+                                    "ports": [
+                                        {
+                                            "protocol": "TCP",
+                                            "port": 22
+                                        }
+                                    ],
+                                    "dnsNameLabel": "[variables('containerGroupDNSLabel')]"
+                                },
+                                "restartPolicy": "OnFailure",
+                                "copy": [
+                                    {
+                                        "name": "volumes",
+                                        "count": "[parameters('sftpUserCount')]",
+                                        "input": {
+                                            "name": "[concat('sftpvolume', copyIndex('volumes'))]",
+                                            "azureFile": {
+                                                "readOnly": false,
+                                                "shareName": "[parameters('fileShareName')]",
+                                                "storageAccountName": "[variables('storageAccountName')]",
+                                                "storageAccountKey": "[listKeys(variables('storageAccountName'),'2018-02-01').keys[0].value]"
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "outputs": {}
+                },
+                "parameters": {
+                    "fileShareName": {
+                        "value": "[parameters('fileShareName')]"
+                    },
+                    "sftpUserCount": {
+                        "value": "[reference('kvHelperTemplate').outputs.sftp_user_count.value]"
+                    },
+                    "sftpUsers": {
+                        "value": "[reference('kvHelperTemplate').outputs.sftp_users.value]"
+                    },
+                    "sftpUserCreds": {
+                        "value": "[reference('kvHelperTemplate').outputs.sftp_user_creds.value]"
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}
