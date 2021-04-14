@@ -34,7 +34,7 @@ The sections below require you to be signed-in to your Azure subscription, and i
 
 ```bash
 az login
-cd ./federal-app-innovation/src/sftp
+cd ./sftp-on-aci
 ```
 
 ### Deploy the _common_ resources
