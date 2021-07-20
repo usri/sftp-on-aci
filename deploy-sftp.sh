@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 # Create the SFTP resource group
 echo "Creating SFTP infrastructure resource group '$SFTP_RG_NAME' in region '$SFTP_LOCATION'."

@@ -4,7 +4,7 @@ This sample provides guidance and code to host an SFTP server using an Azure Con
 
 - support for multiple SFTP user credentials,
 - integration with Azure Key Vault, whereby SFTP user credentials are stored and managed in Key Vault, and
-- ability to "tag" SFTP user credentials stored in key vault to support multiple SFTP deployment stamps.
+- ability to "tag" SFTP user credentials stored in key vault to support multiple SFTP deployment regions.
 
 ## Architecture
 
@@ -22,7 +22,7 @@ To use the solution, you must meet the following pre-requisites:
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli), v2.18 (or newer)
 - [File Zilla](https://filezilla-project.org/) or other FTP client that supports SFTP
 
-> This guidance was developed and tested on Ubuntu 18.04 LTS.
+> This guidance was developed and tested on Ubuntu 18.04 LTS and Ubuntu 20.04 LTS.  You can also use an Azure Cloud Shell (bash) to configure and deploy the solution.
 
 ## Get Started
 
@@ -47,21 +47,30 @@ The _User-assigned Managed Identity_ is used by the Azure Resource Manager durin
 
 > NOTE: You only need to deploy the _common_ resources (this section) one time.  These resources are used by one or more instances of the SFTP solution you will deploy later in this document.
 
-To prepare for the deployment of the _common_ resources, set and save the environment variables listed below to a `.env` file to personalize your deployment.
+To prepare for the deployment of the _common_ resources, set and save the environment variables listed below to a `.env` file to personalize your deployment.  You only need to specify the `UNIQUE_ID`.  However, if you want to change the naming convention for the other environment variables you're free to do so.
 
 ```bash
+# Set a unique identifier to use in Azure resource names to avoid DNS conflicts
+UNIQUE_ID=""
+
+# Convert UNIQUE_ID to lowercase
+UNIQUE_ID=$(echo "$UNIQUE_ID" | tr '[:upper:]' '[:lower:]')
+
+# Remove any '-' characters in the UNIQUE_ID
+UNIQUE_ID=$(echo "${UNIQUE_ID//-}")
+
 # Common resoure group settings
-COMMON_RG_NAME=sftp-common-rg          # Resource group name for common resources
-COMMON_LOCATION=eastus                 # az account list-locations --query '[].name'
+COMMON_RG_NAME=sftp-common-rg              # Resource group name for common resources
+COMMON_LOCATION=eastus                     # az account list-locations --query '[].name'
 
 # Key Vault settings
-KV_NAME=sft-common-<unique>-kv         # Must be globally unique
+KV_NAME=sft-common-${UNIQUE_ID}-kv         # Must be globally unique
 
 # Managed Identity settings
-MI_ID_NAME=sftp-kv-helper-<unique>-mi  # Must be unique to your AAD tenant
+MI_ID_NAME=sftp-kv-helper-${UNIQUE_ID}-mi  # Must be unique to your AAD tenant
 
 # Azure storage account settings
-STG_ACCT_NAME=sftpcommon<unique>stg    # Must be globally unique, lowercase
+STG_ACCT_NAME=sftpcommon${UNIQUE_ID}stg    # Must be globally unique, lowercase
 ```
 
 Next, execute the `deploy-common.sh` script.
@@ -72,7 +81,8 @@ set -a
 source .env
 set +a
 
-# Deploy the common resources.  Pay attention to the ". ./" notation.  This is important.
+# Deploy the common resources.  Pay attention to the ". ./" notation, which forces 
+# the script to execute under the current shell, instead of creating a new one.
 . ./deploy-common.sh
 ```
 
@@ -102,23 +112,24 @@ az keyvault secret set --vault-name $KV_NAME --name user3cred --value "user3:Pas
 
 ### Deploy the SFTP Solution
 
-This section of the documentation guides you through deploying the SFTP solution, which is, the SFTP host (sshd) process running on ACI.  The infrastructure inludes an Azure File Share that the SFTP host will mount when it starts up.  This file share is where files uploaded by SFTP users will be stored.
+This section of the documentation guides you through deploying the SFTP solution, which is, the SFTP host (sshd) process running on ACI.  The infrastructure includes an Azure File Share that the SFTP host will mount when it starts up.  This file share is where files uploaded by SFTP users will be stored.
 
 > NOTE: You can deploy the SFTP solution as many times as you want (perhaps in different regions).  Each SFTP deployment/instance will leverage the _common_ resources you deployed previously.
 
-> NOTE: If you closed your terminal shell session since deploying the _common_ resources, then re-run the `deploy-common.sh` script (see above) before proceeding.  The `deploy-common.sh` script sets a couple of environment variables that the `deploy-sftp.sh` script expects.
+> NOTE: If you closed your terminal shell session since deploying the _common_ resources, then re-run the `deploy-common.sh` script (see above) before proceeding.  The `deploy-common.sh` script sets some environment variables that the `deploy-sftp.sh` script expects.
 
 To prepare for the deployment of the SFTP solution, add/update the environment variables listed below to the end of the same `.env` you created previously for the _common_ resources.
 
 ```bash
 # SFTP Solution resoure group settings
-SFTP_RG_NAME=sftp-eastus-rg          # Resource group name for the SFTP resources
-SFTP_LOCATION=eastus                 # az account list-locations --query '[].name'
+SFTP_RG_NAME=sftp-eastus-rg                # Resource group name for the SFTP resources
+SFTP_LOCATION=eastus                       # az account list-locations --query '[].name'
 
 # SFTP user provisioning settings
-KV_TAG_NAME=instance                 # Name of the tag to query for when retrieving user credentials from key vault.
-                                     # Don't change this unless you used a different tag name when adding the users to key vault.
-KV_TAG_VALUE=eastus                  # The value to filter KV_TAG_NAME on.  ie: only users whose tag value is 'eastus'
+KV_TAG_NAME=instance                       # Name of the tag to query for when retrieving user credentials from key vault.
+                                           # Don't change this unless you used a different tag name when adding the users to key vault.
+
+KV_TAG_VALUE=eastus                        # The value to filter KV_TAG_NAME on.  ie: only users whose tag value is 'eastus'
 ```
 
 Next, execute the `deploy-sftp.sh` script.
@@ -129,7 +140,8 @@ set -a
 source .env
 set +a
 
-# Deploy the SFTP resources.  Pay attention to the ". ./" notation.  This is important.
+# Deploy the SFTP resources.  Pay attention to the ". ./" notation, which forces 
+# the script to execute under the current shell, instead of creating a new one.
 . ./deploy-sftp.sh
 ```
 
@@ -154,6 +166,3 @@ The example below shows how you can launch File Zilla for _user1_ as provisioned
 # Replace <HOST_DNS> with the FQDN of your ACI
 filezilla sftp://user1:Password1@<HOST_DNS>:22
 ```
-
-
-
