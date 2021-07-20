@@ -22,7 +22,7 @@ To use the solution, you must meet the following pre-requisites:
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli), v2.18 (or newer)
 - [File Zilla](https://filezilla-project.org/) or other FTP client that supports SFTP
 
-> This guidance was developed and tested on Ubuntu 18.04 LTS and Ubuntu 20.04 LTS.  You could also use an Azure Cloud Shell (bash) to configure and deploy the solution.
+> This guidance was developed and tested on Ubuntu 18.04 LTS and Ubuntu 20.04 LTS.  You can also use an Azure Cloud Shell (bash) to configure and deploy the solution.
 
 ## Get Started
 
@@ -47,7 +47,7 @@ The _User-assigned Managed Identity_ is used by the Azure Resource Manager durin
 
 > NOTE: You only need to deploy the _common_ resources (this section) one time.  These resources are used by one or more instances of the SFTP solution you will deploy later in this document.
 
-To prepare for the deployment of the _common_ resources, set and save the environment variables listed below to a `.env` file to personalize your deployment.  You only need to specificy the `UNIQUE_ID`.  However, if you want to change the naming convention for the other environment variables you're free to do so.
+To prepare for the deployment of the _common_ resources, set and save the environment variables listed below to a `.env` file to personalize your deployment.  You only need to specify the `UNIQUE_ID`.  However, if you want to change the naming convention for the other environment variables you're free to do so.
 
 ```bash
 # Set a unique identifier to use in Azure resource names to avoid DNS conflicts
