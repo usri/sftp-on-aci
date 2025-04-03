@@ -1,5 +1,9 @@
 # SFTP on Azure Container Instances (ACI)
 
+> :warning: **This repository is archived (read-only) and no longer being maintained.** At the time this was developed, this repo provided a viable solution to a service gap in Azure that many Azure users needed. Azure has since added [SSH File Transfer Protocol (SFTP) support for Azure Blob Storage](https://learn.microsoft.com/en-us/azure/storage/blobs/secure-file-transfer-protocol-support). I would suggest using that service directly instead of rolling a stand-alone solution like this.
+>
+> This repository remains available for historical reference under the MIT License.
+
 This sample provides guidance and code to host an SFTP server using an Azure Container Instance (ACI).  The solution builds on an existing [Azure code sample](https://docs.microsoft.com/en-us/samples/azure-samples/sftp-creation-template/sftp-on-azure/) and provides additional capabilities, such as
 
 - support for multiple SFTP user credentials,
